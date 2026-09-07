@@ -1,20 +1,32 @@
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
 
-# 1. Define file paths and create output directory
-input_file = (
-    "/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026/data/order_lag_splitting.xlsx"
-)
-output_dir = (
-    "/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026/order_volume_breakdown"
-)
+# 1. Define project directory and create output subdirectory
+project_dir = Path("/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026")
+
+base_dir = project_dir / "data"
+output_dir = project_dir / "Output" / "order_volume_breakdown"
 os.makedirs(output_dir, exist_ok=True)
 
-output_excel = os.path.join(output_dir, "order_lag_split_by_user.xlsx")
+input_file = base_dir / "order_lag_splitting.xlsx"
+output_excel = output_dir / "order_lag_split_by_user.xlsx"
 
-# 2. Load dataset
-df = pd.read_excel(input_file)
+# 2. Load dataset - PRESERVE LONG IDs AS STRINGS
+id_cols = ["order_display_id", "user_id", "driver_id"]
+df = pd.read_excel(input_file, dtype={col: str for col in id_cols})
+
+# Ensure all ID columns remain clean strings without floating-point decimals
+for col in id_cols:
+    if col in df.columns:
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(r"\.0$", "", regex=True)
+            .str.strip()
+        )
+
 df["order_creation_local_time"] = pd.to_datetime(
     df["order_creation_local_time"]
 )
@@ -66,32 +78,66 @@ df["frequency_tier"] = pd.Categorical(
     df["frequency_tier"], categories=tier_order, ordered=True
 )
 
+total_volume = len(df)
+
 # ------------------------------------------------------------
-# 6. Generate & Save Charts into 'order_volume_breakdown'
+# 6. Generate & Save Charts (Horizontal Readable Text Labels)
 # ------------------------------------------------------------
 
 # Chart A: Hourly Breakdown Chart
-hourly_counts = df["order_hour"].value_counts().sort_index()
-plt.figure(figsize=(10, 5), dpi=300)
-plt.bar(
-    hourly_counts.index, hourly_counts.values, color="#1f77b4", edgecolor="black"
+hourly_counts = (
+    df["order_hour"]
+    .value_counts()
+    .reindex(range(24), fill_value=0)
+    .sort_index()
 )
-plt.xlabel("Hour of Day (24-Hour Format)", fontsize=12)
-plt.ylabel("Order Volume", fontsize=12)
+plt.figure(figsize=(14, 6), dpi=300)
+bars_h = plt.bar(
+    hourly_counts.index,
+    hourly_counts.values,
+    color="#1f77b4",
+    edgecolor="black",
+    width=0.7,
+)
+
+plt.xlabel("Hour of Day (24-Hour Format)", fontsize=12, fontweight="bold")
+plt.ylabel("Order Volume", fontsize=12, fontweight="bold")
 plt.title(
     "Hourly Order Volume Breakdown (00:00 - 23:00)",
     fontsize=14,
     fontweight="bold",
+    pad=15,
+    loc="center",
 )
-plt.xticks(range(0, 24))
+plt.xticks(range(0, 24), fontsize=10, fontweight="bold")
 plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+for bar in bars_h:
+    yval = bar.get_height()
+    if yval > 0:
+        pct = (yval / total_volume) * 100
+        plt.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            yval + 15,
+            f"{yval:,}\n({pct:.1f}%)",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+            color="#0d47a1" if pct >= 10 else "black",
+            rotation=0,  # Horizontal for easy reading
+        )
+
+plt.ylim(0, max(hourly_counts.values) * 1.25)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "hourly_order_volume.png"))
+plt.savefig(
+    os.path.join(output_dir, "hourly_order_volume.png"), bbox_inches="tight"
+)
 plt.close()
 
 # Chart B: Monthly Breakdown Chart
 month_counts = df["order_month"].value_counts().sort_index()
-plt.figure(figsize=(7, 4.5), dpi=300)
+plt.figure(figsize=(8, 5), dpi=300)
 bars_m = plt.bar(
     month_counts.index,
     month_counts.values,
@@ -99,28 +145,40 @@ bars_m = plt.bar(
     edgecolor="black",
     width=0.4,
 )
-plt.xlabel("Month", fontsize=11)
-plt.ylabel("Order Volume", fontsize=11)
-plt.title("Monthly Order Volume Breakdown", fontsize=13, fontweight="bold")
+plt.xlabel("Month", fontsize=11, fontweight="bold")
+plt.ylabel("Order Volume", fontsize=11, fontweight="bold")
+plt.title(
+    "Monthly Order Volume Breakdown",
+    fontsize=13,
+    fontweight="bold",
+    loc="center",
+)
 plt.grid(axis="y", linestyle="--", alpha=0.7)
+
 for bar in bars_m:
     yval = bar.get_height()
+    pct = (yval / total_volume) * 100
     plt.text(
         bar.get_x() + bar.get_width() / 2.0,
         yval + 15,
-        f"{yval:,}",
+        f"{yval:,}\n({pct:.1f}%)",
         ha="center",
         va="bottom",
+        fontsize=11,
         fontweight="bold",
+        rotation=0,
     )
-plt.ylim(0, max(month_counts.values) * 1.15)
+
+plt.ylim(0, max(month_counts.values) * 1.20)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "monthly_order_volume.png"))
+plt.savefig(
+    os.path.join(output_dir, "monthly_order_volume.png"), bbox_inches="tight"
+)
 plt.close()
 
 # Chart C: Daily Breakdown Chart
 date_counts = df["order_date"].value_counts().sort_index()
-plt.figure(figsize=(12, 5), dpi=300)
+plt.figure(figsize=(14, 6), dpi=300)
 bars_d = plt.bar(
     date_counts.index,
     date_counts.values,
@@ -128,30 +186,59 @@ bars_d = plt.bar(
     edgecolor="black",
     width=0.6,
 )
-plt.xlabel("Date (YYYY-MM-DD)", fontsize=11)
-plt.ylabel("Order Volume", fontsize=11)
-plt.title("Daily Order Volume Breakdown", fontsize=13, fontweight="bold")
-plt.xticks(rotation=45, ha="right", fontsize=9)
+plt.xlabel("Date (YYYY-MM-DD)", fontsize=11, fontweight="bold")
+plt.ylabel("Order Volume", fontsize=11, fontweight="bold")
+plt.title(
+    "Daily Order Volume Breakdown",
+    fontsize=13,
+    fontweight="bold",
+    loc="center",
+)
+plt.xticks(rotation=45, ha="right", fontsize=9, fontweight="bold")
 plt.grid(axis="y", linestyle="--", alpha=0.7)
+
 for bar in bars_d:
     yval = bar.get_height()
-    plt.text(
-        bar.get_x() + bar.get_width() / 2.0,
-        yval + 2,
-        f"{yval}",
-        ha="center",
-        va="bottom",
-        fontsize=8,
-    )
-plt.ylim(0, max(date_counts.values) * 1.15)
+    if yval > 0:
+        pct = (yval / total_volume) * 100
+        plt.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            yval + 2,
+            f"{yval}\n({pct:.1f}%)",
+            ha="center",
+            va="bottom",
+            fontsize=7.5,
+            fontweight="bold",
+            rotation=0,  # Horizontal
+        )
+
+plt.ylim(0, max(date_counts.values) * 1.25)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "daily_order_volume.png"))
+plt.savefig(
+    os.path.join(output_dir, "daily_order_volume.png"), bbox_inches="tight"
+)
 plt.close()
 
 # ------------------------------------------------------------
-# 7. Write Summary Tables & Individual Sheets into Excel
+# 7. Write Summary Tables with Percentage Rows into Excel
 # ------------------------------------------------------------
 with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
+
+    # Helper function to append percentage row to crosstab summaries
+    def append_pct_row(summary_table, total_vol):
+        summary_copy = summary_table.copy()
+        pct_row = {"user_id": "Percentage %"}
+        for col in summary_copy.columns:
+            if col != "user_id":
+                col_sum = summary_copy.loc[
+                    summary_copy["user_id"] == "Total", col
+                ].values
+                if len(col_sum) > 0:
+                    pct_row[col] = f"{(col_sum[0] / total_vol) * 100:.1f}%"
+        return pd.concat(
+            [summary_copy, pd.DataFrame([pct_row])], ignore_index=True
+        )
+
     # Sheet 1: Summary Overview (Lag Tiers)
     summary_df = (
         pd.crosstab(
@@ -159,16 +246,23 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
         )
         .reset_index()
     )
+    summary_df = append_pct_row(summary_df, total_volume)
     summary_df.to_excel(writer, sheet_name="Summary_Overview", index=False)
 
     # Sheet 2: Monthly Breakdown (Total)
     monthly_df = (
         df.groupby("order_month").size().reset_index(name="order_volume")
     )
+    monthly_df["percentage_%"] = (
+        (monthly_df["order_volume"] / total_volume) * 100
+    ).round(2).astype(str) + "%"
     monthly_df.to_excel(writer, sheet_name="Monthly_Breakdown", index=False)
 
     # Sheet 3: Daily Breakdown (Total)
     daily_df = df.groupby("order_date").size().reset_index(name="order_volume")
+    daily_df["percentage_%"] = (
+        (daily_df["order_volume"] / total_volume) * 100
+    ).round(2).astype(str) + "%"
     daily_df.to_excel(writer, sheet_name="Daily_Breakdown", index=False)
 
     # Sheet 4: Hourly Breakdown (Total)
@@ -177,6 +271,9 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
         .size()
         .reset_index(name="order_volume")
     )
+    hourly_df["percentage_%"] = (
+        (hourly_df["order_volume"] / total_volume) * 100
+    ).round(2).astype(str) + "%"
     hourly_df.to_excel(writer, sheet_name="Hourly_Breakdown", index=False)
 
     # Sheet 5: User x Monthly Matrix
@@ -189,6 +286,7 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
         )
         .reset_index()
     )
+    user_monthly = append_pct_row(user_monthly, total_volume)
     user_monthly.to_excel(writer, sheet_name="User_Monthly_Breakdown", index=False)
 
     # Sheet 6: User x Daily Matrix
@@ -198,6 +296,7 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
         )
         .reset_index()
     )
+    user_daily = append_pct_row(user_daily, total_volume)
     user_daily.to_excel(writer, sheet_name="User_Daily_Breakdown", index=False)
 
     # Sheet 7: User x Hourly Matrix
@@ -210,6 +309,7 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
         )
         .reset_index()
     )
+    user_hourly = append_pct_row(user_hourly, total_volume)
     user_hourly.to_excel(writer, sheet_name="User_Hourly_Breakdown", index=False)
 
     # Individual User Sheets

@@ -3,15 +3,31 @@ import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from pathlib import Path
 
-# 1. Define file paths and output folder
-base_dir = "/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026/data"
-input_file = os.path.join(base_dir, "order_lag_splitting.xlsx")
-output_dir = os.path.join(base_dir, "location_and_risk_analysis")
+# 1. Define project directory and subdirectory inside Output
+project_dir = Path("/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026")
+
+base_dir = project_dir / "data"
+output_dir = project_dir / "Output" / "location_and_risk_analysis"
 os.makedirs(output_dir, exist_ok=True)
 
-# 2. Load dataset
-df = pd.read_excel(input_file)
+input_file = base_dir / "order_lag_splitting.xlsx"
+
+# 2. Load dataset - PRESERVE LONG IDs AS STRINGS
+# Specify dtype=str for ID columns so pandas doesn't parse them as floats
+id_cols = ["order_display_id", "user_id", "driver_id"]
+df = pd.read_excel(input_file, dtype={col: str for col in id_cols})
+
+# Ensure all ID columns remain clean strings without floating-point decimals
+for col in id_cols:
+    if col in df.columns:
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(r"\.0$", "", regex=True)
+            .str.strip()
+        )
 
 
 # 3. Smart clean function to strip concatenated duplicated text suffixes
@@ -187,6 +203,7 @@ plt.title(
     fontsize=13,
     fontweight="bold",
     pad=15,
+    loc="center",
 )
 plt.xlabel("Order Count", fontsize=11)
 plt.ylabel("Pickup Address", fontsize=11)
@@ -205,7 +222,9 @@ for bar in bars1:
 
 plt.xlim(0, max(start_top10["order_count"]) * 1.15)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "top_start_addresses.png"))
+plt.savefig(
+    os.path.join(output_dir, "top_start_addresses.png"), bbox_inches="tight"
+)
 plt.close()
 
 # Plot B: Top 10 End Addresses Bar Chart
@@ -227,6 +246,7 @@ plt.title(
     fontsize=13,
     fontweight="bold",
     pad=15,
+    loc="center",
 )
 plt.xlabel("Order Count", fontsize=11)
 plt.ylabel("Dropoff Address", fontsize=11)
@@ -245,7 +265,9 @@ for bar in bars2:
 
 plt.xlim(0, max(end_top10["order_count"]) * 1.15)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "top_end_addresses.png"))
+plt.savefig(
+    os.path.join(output_dir, "top_end_addresses.png"), bbox_inches="tight"
+)
 plt.close()
 
 # Plot C: Top Inter-Province Routes
@@ -263,6 +285,7 @@ plt.title(
     fontsize=13,
     fontweight="bold",
     pad=12,
+    loc="center",
 )
 plt.xlabel("Order Volume", fontsize=11)
 plt.ylabel("Route", fontsize=11)
@@ -280,11 +303,13 @@ for bar in bars3:
 
 plt.xlim(0, max(top_routes["order_count"]) * 1.15)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "top_order_routes.png"))
+plt.savefig(
+    os.path.join(output_dir, "top_order_routes.png"), bbox_inches="tight"
+)
 plt.close()
 
 # ------------------------------------------------------------
-# 7. Export Excel File
+# 7. Export Excel File (Preserving String Format)
 # ------------------------------------------------------------
 excel_out = os.path.join(output_dir, "location_risk_breakdown.xlsx")
 with pd.ExcelWriter(excel_out, engine="openpyxl") as writer:
@@ -303,6 +328,4 @@ with pd.ExcelWriter(excel_out, engine="openpyxl") as writer:
         writer, sheet_name="Vehicle_Status_CrossTab"
     )
 
-print(
-    f"Analysis completed! All files and plots saved to '{output_dir}'."
-)
+print(f"Analysis completed! All files and plots saved to '{output_dir}'.")
