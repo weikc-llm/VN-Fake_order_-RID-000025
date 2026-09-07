@@ -1,5 +1,6 @@
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from pathlib import Path
 
@@ -125,7 +126,7 @@ for bar in bars_h:
             fontsize=8,
             fontweight="bold",
             color="#0d47a1" if pct >= 10 else "black",
-            rotation=0,  # Horizontal for easy reading
+            rotation=0,
         )
 
 plt.ylim(0, max(hourly_counts.values) * 1.25)
@@ -209,13 +210,220 @@ for bar in bars_d:
             va="bottom",
             fontsize=7.5,
             fontweight="bold",
-            rotation=0,  # Horizontal
+            rotation=0,
         )
 
 plt.ylim(0, max(date_counts.values) * 1.25)
 plt.tight_layout()
 plt.savefig(
     os.path.join(output_dir, "daily_order_volume.png"), bbox_inches="tight"
+)
+plt.close()
+
+# ------------------------------------------------------------
+# Chart D: High-Frequency Orders (<30s Lag) Count per User ID
+# ------------------------------------------------------------
+summary_raw = (
+    pd.crosstab(df["user_id"], df["frequency_tier"], margins=True, margins_name="Total")
+    .reset_index()
+)
+
+user_data = summary_raw[
+    ~summary_raw["user_id"].isin(["Total", "Percentage %"])
+].copy()
+
+user_data_sorted = user_data.sort_values(
+    by="0s - <30s", ascending=True
+).reset_index(drop=True)
+
+colors_hf = [
+    "#d62728" if x > 0 else "#cccccc" for x in user_data_sorted["0s - <30s"]
+]
+
+fig, ax = plt.subplots(figsize=(11, 7), dpi=300)
+bars = ax.barh(
+    user_data_sorted["user_id"],
+    user_data_sorted["0s - <30s"],
+    color=colors_hf,
+    edgecolor="black",
+    linewidth=0.7,
+    height=0.65,
+)
+
+ax.set_title(
+    "High-Frequency Orders (<30s Lag) Count per User ID",
+    fontsize=13,
+    fontweight="bold",
+    pad=15,
+    loc="center",
+)
+ax.set_xlabel(
+    "High-Frequency Order Count (<30s Lag)",
+    fontsize=11,
+    fontweight="bold",
+    labelpad=10,
+)
+ax.set_ylabel("User ID", fontsize=11, fontweight="bold", labelpad=10)
+ax.grid(axis="x", linestyle="--", alpha=0.5)
+
+for bar, (i, row) in zip(bars, user_data_sorted.iterrows()):
+    val = int(row["0s - <30s"])
+    tot = int(row["Total"])
+    pct = (val / tot) * 100 if tot > 0 else 0
+    if val > 0:
+        ax.text(
+            val + 1.5,
+            bar.get_y() + bar.get_height() / 2,
+            f"{val} out of {tot} orders ({pct:.1f}%)",
+            ha="left",
+            va="center",
+            fontweight="bold",
+            color="#b30000",
+            fontsize=9.5,
+        )
+    else:
+        ax.text(
+            1,
+            bar.get_y() + bar.get_height() / 2,
+            f"0 out of {tot} orders (0.0%)",
+            ha="left",
+            va="center",
+            color="#777777",
+            fontsize=9,
+            fontstyle="italic",
+        )
+
+ax.set_xlim(0, max(user_data_sorted["0s - <30s"]) * 1.40)
+plt.tight_layout()
+plt.savefig(
+    os.path.join(output_dir, "high_frequency_orders_per_user.png"),
+    bbox_inches="tight",
+)
+plt.close()
+
+# ------------------------------------------------------------
+# Chart E: 100% Normalized Order Volume Share per User ID
+# ------------------------------------------------------------
+pct_df = user_data.copy()
+tier_cols_norm = [
+    "First Order",
+    "0s - <30s",
+    "30s - <1m",
+    "1m - <5m",
+    "5m - <30m",
+    ">= 30m",
+]
+
+for col in tier_cols_norm:
+    pct_df[col] = (pct_df[col] / pct_df["Total"]) * 100
+
+pct_df = pct_df.sort_values(by="0s - <30s", ascending=True).reset_index(
+    drop=True
+)
+
+fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
+
+ordered_tiers = [
+    "0s - <30s",
+    "30s - <1m",
+    "1m - <5m",
+    "5m - <30m",
+    ">= 30m",
+    "First Order",
+]
+colors_norm = ["#d62728", "#ff7f0e", "#1f77b4", "#2ca02c", "#9467bd", "#8c564b"]
+
+left = np.zeros(len(pct_df))
+
+for col, color in zip(ordered_tiers, colors_norm):
+    values = pct_df[col].values
+    bars = ax.barh(
+        pct_df["user_id"],
+        values,
+        left=left,
+        label=col,
+        color=color,
+        edgecolor="black",
+        linewidth=0.6,
+        height=0.65,
+    )
+
+    for i, val in enumerate(values):
+        if val >= 6.0:
+            ax.text(
+                left[i] + val / 2.0,
+                i,
+                f"{val:.1f}%",
+                ha="center",
+                va="center",
+                color=(
+                    "white"
+                    if col in ["0s - <30s", "1m - <5m"]
+                    else "black"
+                ),
+                fontsize=8.5,
+                fontweight="bold",
+            )
+
+    left += values
+
+ax.set_title(
+    "100% Normalized Order Volume Share per User ID by Lag Frequency Tier",
+    fontsize=13,
+    fontweight="bold",
+    pad=15,
+    loc="center",
+)
+ax.set_xlabel(
+    "Percentage of Total User Orders (%)",
+    fontsize=11,
+    fontweight="bold",
+    labelpad=10,
+)
+ax.set_ylabel("User ID", fontsize=11, fontweight="bold", labelpad=10)
+ax.set_xlim(0, 100)
+ax.grid(axis="x", linestyle="--", alpha=0.5)
+ax.legend(
+    title="Frequency Tier",
+    bbox_to_anchor=(1.02, 1),
+    loc="upper left",
+    frameon=True,
+    facecolor="white",
+)
+
+# Right-margin text: "X out of Y orders (Z%)"
+for i, row in pct_df.iterrows():
+    hf_cnt = int(user_data.loc[user_data["user_id"] == row["user_id"], "0s - <30s"].values[0])
+    tot_cnt = int(row["Total"])
+    hf_pct = row["0s - <30s"]
+    
+    if hf_pct > 0:
+        ax.text(
+            101.5,
+            i,
+            f"{hf_cnt} out of {tot_cnt} orders ({hf_pct:.1f}%)",
+            ha="left",
+            va="center",
+            color="#b30000" if hf_pct > 50 else "#333333",
+            fontweight="bold" if hf_pct > 50 else "normal",
+            fontsize=9,
+        )
+    else:
+        ax.text(
+            101.5,
+            i,
+            f"0 out of {tot_cnt} orders (0.0%)",
+            ha="left",
+            va="center",
+            color="#777777",
+            fontsize=9,
+        )
+
+ax.set_xlim(0, 140)
+plt.tight_layout()
+plt.savefig(
+    os.path.join(output_dir, "normalized_100pct_stacked_bar.png"),
+    bbox_inches="tight",
 )
 plt.close()
 

@@ -1,25 +1,39 @@
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
 
-# 1. Define paths
-base_dir = "/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026/data"
-file_linkage = os.path.join(
-    base_dir, "result_20260903_110042 (linkage info).xlsx"
-)
-file_user = os.path.join(base_dir, "result_20260903_142231 (user extra info).xlsx")
+# 1. Define paths using Path objects
+project_dir = Path("/mnt/c/Users/wei.kc/Desktop/Adhoc/03 Sept 2026")
 
-# 2. Create output directory for exported files
-output_dir = os.path.join(base_dir, "user_linkage_info")
+base_dir = project_dir / "data"
+output_dir = project_dir / "Output" / "user_linkage_info"
 os.makedirs(output_dir, exist_ok=True)
 
-# 3. Load data
-df_linkage = pd.read_excel(file_linkage)
-df_user = pd.read_excel(file_user)
+file_linkage = base_dir / "result_20260903_110042 (linkage info).xlsx"
+file_user = base_dir / "result_20260903_142231 (user extra info).xlsx"
+
+# 2. Load data - PRESERVE ALL ID COLUMNS AS STRINGS
+df_linkage = pd.read_excel(
+    file_linkage, dtype={"target_user_id": str, "linked_entity_id": str}
+)
+df_user = pd.read_excel(file_user, dtype={"user_id": str})
+
+# Ensure string formatting without trailing floating decimals
+df_user["user_id"] = (
+    df_user["user_id"].astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
+)
+if "target_user_id" in df_linkage.columns:
+    df_linkage["target_user_id"] = (
+        df_linkage["target_user_id"]
+        .astype(str)
+        .str.replace(r"\.0$", "", regex=True)
+        .str.strip()
+    )
 
 all_users_df = pd.DataFrame({"user_id": df_user["user_id"]})
 
-# 4. Extract metrics per user
+# 3. Extract metrics per user
 u2u_d2 = (
     df_linkage[
         (df_linkage["linked_entity_type"] == "User")
@@ -71,7 +85,7 @@ summary = summary.sort_values(
     ascending=[False, False, False],
 ).reset_index(drop=True)
 
-# 5. Chart 1: Beautified Main Bar Chart
+# 4. Chart 1: Beautified Main Bar Chart
 fig, ax = plt.subplots(figsize=(11, 7), dpi=300)
 colors = ["#1f77b4" if x > 0 else "#e0e0e0" for x in summary["total_linkages"]]
 bars = ax.barh(
@@ -87,6 +101,7 @@ ax.set_title(
     fontsize=14,
     fontweight="bold",
     pad=15,
+    loc="center",
 )
 ax.set_xlabel("Total Linked Entities (Drivers + Users)", fontsize=11, labelpad=10)
 ax.set_ylabel("User ID", fontsize=11, labelpad=10)
@@ -117,12 +132,14 @@ for bar, val in zip(bars, summary["total_linkages"]):
             fontstyle="italic",
         )
 
-ax.set_xlim(0, 16)
+ax.set_xlim(0, max(summary["total_linkages"].max() * 1.25, 16))
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "beautified_main_linkage.png"))
+plt.savefig(
+    os.path.join(output_dir, "beautified_main_linkage.png"), bbox_inches="tight"
+)
 plt.close()
 
-# 6. Chart 2: User to User Linkages
+# 5. Chart 2: User to User Linkages
 fig, ax = plt.subplots(figsize=(11, 7), dpi=300)
 ax.barh(
     summary["user_id_str"],
@@ -148,6 +165,7 @@ ax.set_title(
     fontsize=14,
     fontweight="bold",
     pad=15,
+    loc="center",
 )
 ax.set_xlabel("Number of Linked User Entities", fontsize=11, labelpad=10)
 ax.set_ylabel("User ID", fontsize=11, labelpad=10)
@@ -171,12 +189,14 @@ for i, row in summary.iterrows():
     else:
         ax.text(0.2, i, "0", ha="left", va="center", color="#888888", fontsize=9)
 
-ax.set_xlim(0, 18)
+ax.set_xlim(0, max(summary["u2u_total"].max() * 1.25, 18))
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "u2u_linkage_chart.png"))
+plt.savefig(
+    os.path.join(output_dir, "u2u_linkage_chart.png"), bbox_inches="tight"
+)
 plt.close()
 
-# 7. Chart 3: User to Driver Linkages
+# 6. Chart 3: User to Driver Linkages (Dynamic Labels)
 fig, ax = plt.subplots(figsize=(11, 7), dpi=300)
 ax.barh(
     summary["user_id_str"],
@@ -202,6 +222,7 @@ ax.set_title(
     fontsize=14,
     fontweight="bold",
     pad=15,
+    loc="center",
 )
 ax.set_xlabel("Number of Linked Driver Entities", fontsize=11, labelpad=10)
 ax.set_ylabel("User ID", fontsize=11, labelpad=10)
@@ -215,12 +236,12 @@ for i, row in summary.iterrows():
         ax.text(
             tot + 0.25,
             i,
-            "Total: 8 Drivers (1 Direct, 7 Indirect)",
+            f'Total: {tot} Drivers ({row["u2d_direct"]} Direct, {row["u2d_indirect"]} Indirect)',
             ha="left",
             va="center",
             fontweight="bold",
             color="#b30000",
-            fontsize=10,
+            fontsize=9.5,
         )
     else:
         ax.text(
@@ -233,12 +254,14 @@ for i, row in summary.iterrows():
             fontsize=9,
         )
 
-ax.set_xlim(0, 12)
+ax.set_xlim(0, max(summary["u2d_total"].max() * 1.35, 12))
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "u2d_linkage_chart.png"))
+plt.savefig(
+    os.path.join(output_dir, "u2d_linkage_chart.png"), bbox_inches="tight"
+)
 plt.close()
 
-# 8. Chart 4: Combined Total Linkage
+# 7. Chart 4: Combined Total Linkage
 fig, ax = plt.subplots(figsize=(11, 7), dpi=300)
 ax.barh(
     summary["user_id_str"],
@@ -264,6 +287,7 @@ ax.set_title(
     fontsize=14,
     fontweight="bold",
     pad=15,
+    loc="center",
 )
 ax.set_xlabel("Total Linked Entities", fontsize=11, labelpad=10)
 ax.set_ylabel("User ID", fontsize=11, labelpad=10)
@@ -287,13 +311,16 @@ for i, row in summary.iterrows():
     else:
         ax.text(0.2, i, "0", ha="left", va="center", color="#888888", fontsize=9)
 
-ax.set_xlim(0, 18)
+ax.set_xlim(0, max(summary["total_linkages"].max() * 1.25, 18))
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "combined_total_linkage_chart.png"))
+plt.savefig(
+    os.path.join(output_dir, "combined_total_linkage_chart.png"),
+    bbox_inches="tight",
+)
 plt.close()
 
-# 9. Save Excel summary to directory
+# 8. Save Excel summary into user_linkage_info directory (Preserving IDs)
 excel_out = os.path.join(output_dir, "user_linkage_detailed_breakdown.xlsx")
-summary.to_excel(excel_out, index=False)
+summary.drop(columns=["user_id_str"]).to_excel(excel_out, index=False)
 
-print(f"All files exported successfully into folder: '{output_dir}'")
+print(f"All linkage files exported successfully into folder: '{output_dir}'")
