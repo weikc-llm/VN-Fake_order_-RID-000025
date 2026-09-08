@@ -1,0 +1,59 @@
+-- Chunk 1
+
+
+-- Chunk 2
+AND TO_DATE(create_time_local) BETWEEN '2026-07-08' AND '2026-07-10'
+
+-- Chunk 3
+AND TO_DATE(create_time_local) BETWEEN '2026-07-11' AND '2026-07-13'
+
+-- Chunk 4
+AND TO_DATE(create_time_local) BETWEEN '2026-07-14' AND '2026-07-16'
+
+-- Chunk 5
+AND TO_DATE(create_time_local) BETWEEN '2026-07-17' AND '2026-07-19'
+
+-- Chunk 6
+AND TO_DATE(create_time_local) BETWEEN '2026-07-20' AND '2026-07-22'
+
+-- Chunk 7
+AND TO_DATE(create_time_local) BETWEEN '2026-07-23' AND '2026-07-25'
+
+-- Chunk 8
+AND TO_DATE(create_time_local) BETWEEN '2026-07-26' AND '2026-07-28'
+
+-- Chunk 9
+AND TO_DATE(create_time_local) BETWEEN '2026-07-29' AND '2026-07-31'
+
+-- Chunk 10
+AND TO_DATE(create_time_local) BETWEEN '2026-08-01' AND '2026-08-03'
+
+-- Chunk 11
+AND TO_DATE(create_time_local) BETWEEN '2026-08-04' AND '2026-08-06'
+
+-- Chunk 12
+AND TO_DATE(create_time_local) BETWEEN '2026-08-07' AND '2026-08-09'
+
+-- Chunk 13
+AND TO_DATE(create_time_local) BETWEEN '2026-08-10' AND '2026-08-12'
+
+-- Chunk 14
+AND TO_DATE(create_time_local) BETWEEN '2026-08-13' AND '2026-08-15'
+
+-- Chunk 15
+AND TO_DATE(create_time_local) BETWEEN '2026-08-16' AND '2026-08-18'
+
+-- Chunk 16
+AND TO_DATE(create_time_local) BETWEEN '2026-08-19' AND '2026-08-21'
+
+-- Chunk 17
+AND TO_DATE(create_time_local) BETWEEN '2026-08-22' AND '2026-08-24'
+
+-- Chunk 18
+AND TO_DATE(create_time_local) BETWEEN '2026-08-25' AND '2026-08-27'
+
+-- Chunk 19
+AND TO_DATE(create_time_local) BETWEEN '2026-08-28' AND '2026-08-30'
+
+-- Chunk 20
+AND TO_DATE(create_time_local) BETWEEN '2026-08-31' AND '2026-08-31'

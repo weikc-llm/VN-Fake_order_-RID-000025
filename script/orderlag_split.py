@@ -302,7 +302,7 @@ plt.savefig(
 plt.close()
 
 # ------------------------------------------------------------
-# Chart E: 100% Normalized Order Volume Share per User ID
+# Chart E: Proportion of High-Frequency Fake Orders (<30s Interval) by Account
 # ------------------------------------------------------------
 pct_df = user_data.copy()
 tier_cols_norm = [
@@ -368,7 +368,7 @@ for col, color in zip(ordered_tiers, colors_norm):
     left += values
 
 ax.set_title(
-    "100% Normalized Order Volume Share per User ID by Lag Frequency Tier",
+    "Proportion of High-Frequency Fake Orders (<30s Interval) by Account",
     fontsize=13,
     fontweight="bold",
     pad=15,
