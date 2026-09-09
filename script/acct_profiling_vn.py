@@ -127,8 +127,9 @@ ax2.set_ylabel(
     "Total Created Orders", fontsize=12, color="#d95f02", fontweight="bold"
 )
 
-ax1.set_ylim(0, max(age_group["user_count"]) * 1.25)
-ax2.set_ylim(0, max(age_group["total_orders"]) * 1.25)
+# Expand y-limits to give breathing room for labels
+ax1.set_ylim(0, max(age_group["user_count"]) * 1.35)
+ax2.set_ylim(0, max(age_group["total_orders"]) * 1.35)
 ax2.grid(False)
 
 for rect in rects1:
@@ -147,11 +148,11 @@ for rect in rects1:
 
 for rect in rects2:
     height = rect.get_height()
-    offset_y = 14 if height < 200 else 6
+    # Adjusted xytext to (10, 8) to offset order label rightward away from blue bar gridline
     ax2.annotate(
         f"{int(height)} orders",
         xy=(rect.get_x() + rect.get_width() / 2, height),
-        xytext=(0, offset_y),
+        xytext=(10, 8),
         textcoords="offset points",
         ha="center",
         va="bottom",
@@ -167,72 +168,71 @@ plt.savefig(
 )
 plt.close()
 
-# ------------------------------------------------------------
-# CHART 2: Account Profiling Indicator Breakdown (%)
-# ------------------------------------------------------------
-# Removed "Pre-Reg Order Anomaly" (evaluated to 0% after MYT-to-ICT timezone adjustment)
-risk_indicators = {
-    "Banned Status": 100.0,
-    "Missing Email": (df["missing_email"].sum() / total_accounts) * 100,
-    "Account Age < 90 Days": (
-        (df["account_age(days)"] < 90).sum() / total_accounts
-    )
-    * 100,
-    "Extreme High Freq (<30s Lag)": 87.5,
-    "Incomplete Profile Name": (
-        df["incomplete_profile_name"].sum() / total_accounts
-    )
-    * 100,
-    "WEB Access Channel": (df["is_web_device"].sum() / total_accounts) * 100,
-    "Zero Order Completion": (df["zero_completion"].sum() / total_accounts)
-    * 100,
-    "Shared Device ID": (
-        df["shared_device_id"].sum() / total_accounts
-    )
-    * 100,
-}
+# # ------------------------------------------------------------
+# # CHART 2: Risk Indicator Breakdown (%)
+# # ------------------------------------------------------------
+# # Focuses exclusively on account-level static metadata indicators
+# risk_indicators = {
+#     "Missing Email": (df["missing_email"].sum() / total_accounts) * 100,
+#     "Account Age < 90 Days": (
+#         (df["account_age(days)"] < 90).sum() / total_accounts
+#     )
+#     * 100,
+#     "Incomplete Profile Name": (
+#         df["incomplete_profile_name"].sum() / total_accounts
+#     )
+#     * 100,
+#     "WEB Access Channel": (df["is_web_device"].sum() / total_accounts) * 100,
+#     "Zero Order Completion": (df["zero_completion"].sum() / total_accounts)
+#     * 100,
+#     "Shared Device ID": (
+#         df["shared_device_id"].sum() / total_accounts
+#     )
+#     * 100,
+# }
 
-risk_df = pd.DataFrame(
-    list(risk_indicators.items()), columns=["Indicator", "Percentage"]
-).sort_values("Percentage", ascending=True)
+# risk_df = pd.DataFrame(
+#     list(risk_indicators.items()), columns=["Indicator", "Percentage"]
+# ).sort_values("Percentage", ascending=True)
 
-fig, ax = plt.subplots(figsize=(9, 5.5), dpi=300)
-bars = ax.barh(
-    risk_df["Indicator"],
-    risk_df["Percentage"],
-    color="#d62728",
-    edgecolor="black",
-    height=0.6,
-)
-ax.set_title(
-    "Account Profiling Indicator Breakdown",
-    fontsize=13,
-    fontweight="bold",
-    pad=15,
-    loc="center",
-)
-ax.set_xlabel("Prevalence Percentage (%)", fontsize=12)
-ax.set_xlim(0, 118)
+# fig, ax = plt.subplots(figsize=(9, 5), dpi=300)
+# bars = ax.barh(
+#     risk_df["Indicator"],
+#     risk_df["Percentage"],
+#     color="#d62728",
+#     edgecolor="black",
+#     height=0.6,
+# )
 
-for bar in bars:
-    w = bar.get_width()
-    ax.text(
-        w + 2,
-        bar.get_y() + bar.get_height() / 2,
-        f"{w:.1f}%",
-        ha="left",
-        va="center",
-        fontweight="bold",
-        fontsize=9.5,
-        color="#b30000",
-    )
+# ax.set_title(
+#     "Risk Indicator Breakdown",
+#     fontsize=13,
+#     fontweight="bold",
+#     pad=15,
+#     loc="center",
+# )
+# ax.set_xlabel("Prevalence Percentage (%)", fontsize=12)
+# ax.set_xlim(0, 118)
 
-plt.tight_layout()
-plt.savefig(
-    os.path.join(output_dir, "risk_indicator_prevalence.png"),
-    bbox_inches="tight",
-)
-plt.close()
+# for bar in bars:
+#     w = bar.get_width()
+#     ax.text(
+#         w + 2,
+#         bar.get_y() + bar.get_height() / 2,
+#         f"{w:.1f}%",
+#         ha="left",
+#         va="center",
+#         fontweight="bold",
+#         fontsize=9.5,
+#         color="#b30000",
+#     )
+
+# plt.tight_layout()
+# plt.savefig(
+#     os.path.join(output_dir, "risk_indicator_prevalence.png"),
+#     bbox_inches="tight",
+# )
+# plt.close()
 
 # ------------------------------------------------------------
 # CHART 3A: Device Type Access Channel (WEB vs ANDROID)
@@ -364,7 +364,7 @@ for bar, v in zip(bars, [shared_cnt, unique_cnt]):
 ax.set_ylim(0, max(unique_cnt, shared_cnt) * 1.25)
 plt.tight_layout()
 plt.savefig(
-    os.path.join(output_dir, "device_fingerprint_sharing.png"),
+    os.path.join(output_dir, "device_sharing.png"),
     bbox_inches="tight",
 )
 plt.close()
@@ -445,7 +445,65 @@ plt.savefig(
 plt.close()
 
 # ------------------------------------------------------------
-# EXCEL SUMMARY EXPORT (Full 40 original + engineered metrics)
+# CHART 3E: Account Creation Timeline Breakdown (Year & Month)
+# ------------------------------------------------------------
+month_map = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"
+}
+df["reg_year_month"] = (
+    df["register_year"].astype(str) + " " + df["register_month"].map(month_map)
+)
+
+date_order = ["2021 Dec", "2024 Mar", "2026 Jul", "2026 Aug"]
+year_month_counts = df["reg_year_month"].value_counts().reindex(date_order).fillna(0)
+
+fig, ax = plt.subplots(figsize=(8, 5.5), dpi=300)
+
+bars = ax.bar(
+    year_month_counts.index,
+    year_month_counts.values,
+    color="#1f77b4",
+    edgecolor="black",
+    width=0.45,
+)
+
+ax.set_title(
+    "Account Creation Timeline Breakdown (Year & Month)",
+    fontsize=13,
+    fontweight="bold",
+    pad=15,
+    loc="center",
+)
+ax.set_xlabel(
+    "Registration Timeframe (Year & Month)", fontweight="bold", fontsize=11, labelpad=10
+)
+ax.set_ylabel("Number of Accounts", fontweight="bold", fontsize=11, labelpad=10)
+ax.grid(axis="y", linestyle="--", alpha=0.5)
+
+for bar in bars:
+    yval = int(bar.get_height())
+    pct = (yval / total_accounts) * 100
+    ax.text(
+        bar.get_x() + bar.get_width() / 2.0,
+        yval + 0.2,
+        f"{yval} ({pct:.1f}%)",
+        ha="center",
+        va="bottom",
+        fontweight="bold",
+        fontsize=10,
+    )
+
+ax.set_ylim(0, max(year_month_counts.values) * 1.25)
+plt.tight_layout()
+plt.savefig(
+    os.path.join(output_dir, "account_creation_year_month.png"),
+    bbox_inches="tight",
+)
+plt.close()
+
+# ------------------------------------------------------------
+# EXCEL SUMMARY EXPORT (Full original + engineered metrics)
 # ------------------------------------------------------------
 export_df = df.drop(
     columns=["register_time_vn", "first_create_time_local_dt"]
@@ -473,10 +531,7 @@ excel_out = os.path.join(output_dir, "account_profiling_summary.xlsx")
 with pd.ExcelWriter(excel_out, engine="openpyxl") as writer:
     export_df.to_excel(writer, sheet_name="Account_Profiles", index=False)
     age_summary.to_excel(writer, sheet_name="Age_Tier_Summary", index=False)
-    risk_df.sort_values("Percentage", ascending=False).to_excel(
-        writer, sheet_name="Risk_Indicator_Prevalence", index=False
-    )
 
 print(
-    f"Analysis completed! Clean indicator breakdown chart saved."
+    f"Analysis completed! All updated account profiling charts and excel exports generated successfully inside '{output_dir}'."
 )
