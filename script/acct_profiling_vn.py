@@ -28,11 +28,13 @@ for col in id_cols:
             .str.strip()
         )
 
-df["register_time_dt"] = pd.to_datetime(df["register_time"])
+# 3. Timezone Adjustment & Datetime Parsing
+# register_time is in MYT (UTC+8); subtract 1 hour to convert to Vietnam Time (UTC+7)
+df["register_time_vn"] = pd.to_datetime(df["register_time"]) - pd.Timedelta(hours=1)
 df["first_create_time_local_dt"] = pd.to_datetime(df["first_create_time_local"])
 
 
-# 3. Clean age tier labels
+# 4. Clean age tier labels
 def assign_age_tier(days):
     if days < 30:
         return "< 30 Days"
@@ -42,14 +44,16 @@ def assign_age_tier(days):
         return "> 90 Days"
 
 
-# 4. Engineered Metric Calculations
+# 5. Engineered Metric Calculations
 df["age_tier"] = df["account_age(days)"].apply(assign_age_tier)
 df["completion_rate_%"] = (
     (df["total_complete_cnt"] / df["total_create_cnt"]) * 100
 ).round(2)
 
 total_accounts = len(df)
-df["pre_reg_order_anomaly"] = df["first_create_time_local_dt"] < df["register_time_dt"]
+
+# Anomaly flag comparing Vietnam Local Order Creation vs Adjusted Vietnam Registration Time
+df["pre_reg_order_anomaly"] = df["first_create_time_local_dt"] < df["register_time_vn"]
 df["missing_email"] = df["email"].isna()
 df["incomplete_profile_name"] = df["first_name"].isna() & df["last_name"].isna()
 df["zero_completion"] = df["total_complete_cnt"] == 0
@@ -164,33 +168,25 @@ plt.savefig(
 plt.close()
 
 # ------------------------------------------------------------
-# CHART 2: Extended Risk Indicator Prevalence Across Accounts (%)
+# CHART 2: Account Profiling Indicator Breakdown (%)
 # ------------------------------------------------------------
+# Removed "Pre-Reg Order Anomaly" (evaluated to 0% after MYT-to-ICT timezone adjustment)
 risk_indicators = {
     "Banned Status": 100.0,
-    "1st Login HCM vs Order Can Tho": (
-        df["hcm_login_cantho_target"].sum() / total_accounts
-    )
-    * 100,
     "Missing Email": (df["missing_email"].sum() / total_accounts) * 100,
     "Account Age < 90 Days": (
         (df["account_age(days)"] < 90).sum() / total_accounts
     )
     * 100,
     "Extreme High Freq (<30s Lag)": 87.5,
-    "WEB Access Channel": (df["is_web_device"].sum() / total_accounts) * 100,
-    "Pre-Reg Order Anomaly": (
-        df["pre_reg_order_anomaly"].sum() / total_accounts
-    )
-    * 100,
     "Incomplete Profile Name": (
         df["incomplete_profile_name"].sum() / total_accounts
     )
     * 100,
+    "WEB Access Channel": (df["is_web_device"].sum() / total_accounts) * 100,
     "Zero Order Completion": (df["zero_completion"].sum() / total_accounts)
     * 100,
-    "Corporate Account Flag": (df["is_corporate"].sum() / total_accounts) * 100,
-    "Shared Device ID (Bot Farm)": (
+    "Shared Device ID": (
         df["shared_device_id"].sum() / total_accounts
     )
     * 100,
@@ -200,7 +196,7 @@ risk_df = pd.DataFrame(
     list(risk_indicators.items()), columns=["Indicator", "Percentage"]
 ).sort_values("Percentage", ascending=True)
 
-fig, ax = plt.subplots(figsize=(9, 6.5), dpi=300)
+fig, ax = plt.subplots(figsize=(9, 5.5), dpi=300)
 bars = ax.barh(
     risk_df["Indicator"],
     risk_df["Percentage"],
@@ -209,7 +205,7 @@ bars = ax.barh(
     height=0.6,
 )
 ax.set_title(
-    "Risk Indicator Prevalence Across Banned Accounts (%)",
+    "Account Profiling Indicator Breakdown",
     fontsize=13,
     fontweight="bold",
     pad=15,
@@ -368,7 +364,7 @@ for bar, v in zip(bars, [shared_cnt, unique_cnt]):
 ax.set_ylim(0, max(unique_cnt, shared_cnt) * 1.25)
 plt.tight_layout()
 plt.savefig(
-    os.path.join(output_dir, "device_sharing.png"),
+    os.path.join(output_dir, "device_fingerprint_sharing.png"),
     bbox_inches="tight",
 )
 plt.close()
@@ -405,8 +401,6 @@ ax.set_xlabel(
     "Completed Order Count", fontsize=11, fontweight="bold", labelpad=10
 )
 ax.set_ylabel("User ID", fontsize=11, fontweight="bold", labelpad=10)
-
-# Gridlines removed for clean annotation legibility
 ax.grid(False)
 
 for bar, (i, row) in zip(bars, df_sorted.iterrows()):
@@ -454,7 +448,7 @@ plt.close()
 # EXCEL SUMMARY EXPORT (Full 40 original + engineered metrics)
 # ------------------------------------------------------------
 export_df = df.drop(
-    columns=["register_time_dt", "first_create_time_local_dt"]
+    columns=["register_time_vn", "first_create_time_local_dt"]
 )
 
 age_summary = (
@@ -484,5 +478,5 @@ with pd.ExcelWriter(excel_out, engine="openpyxl") as writer:
     )
 
 print(
-    f"Analysis completed! Clean gridless completed orders chart generated. Output saved in '{output_dir}'."
+    f"Analysis completed! Clean indicator breakdown chart saved."
 )
