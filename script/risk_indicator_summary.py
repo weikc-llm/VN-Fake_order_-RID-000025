@@ -50,12 +50,17 @@ if "shared_device_id" not in df_user.columns:
     shared_ids = shared_ids[shared_ids > 1].index
     df_user["shared_device_id"] = df_user["device_identifier"].isin(shared_ids)
 
-# 5. Calculate High-Frequency Account Prevalence dynamically (<30s lag)
+# 5. Calculate High-Frequency Account Prevalence dynamically (>50% order share <30s lag)
 user_lag = df_lag_summary[
     ~df_lag_summary["user_id"].isin(["Total", "Percentage %"])
 ].copy()
-hf_accounts_cnt = (user_lag["0s - <30s"] > 0).sum()
-hf_prevalence = (hf_accounts_cnt / total_accounts) * 100
+
+# Calculate proportion of high-frequency orders per user
+user_lag["hf_order_pct"] = (user_lag["0s - <30s"] / user_lag["Total"]) * 100
+
+# Filter ONLY accounts where > 50% of their created orders are under <30s lag
+hf_dominant_accounts_cnt = (user_lag["hf_order_pct"] > 50.0).sum()
+hf_prevalence = (hf_dominant_accounts_cnt / total_accounts) * 100
 
 # 6. Build dynamic risk indicators dictionary (Fully automated calculation)
 risk_indicators = {
@@ -68,7 +73,7 @@ risk_indicators = {
         df_user["incomplete_profile_name"].sum() / total_accounts
     )
     * 100,
-    "High-Frequency Orders (<30s Lag)": hf_prevalence,
+    "High-Frequency Dominant Accounts (>50% Orders <30s Lag)": hf_prevalence,
     "WEB Access Channel": (df_user["is_web_device"].sum() / total_accounts) * 100,
     "Zero Order Completion": (df_user["zero_completion"].sum() / total_accounts)
     * 100,
@@ -84,7 +89,7 @@ risk_df = pd.DataFrame(
 ).sort_values("Prevalence (%)", ascending=True)
 
 # 8. Generate Horizontal Bar Chart
-fig, ax = plt.subplots(figsize=(10, 5.5), dpi=300)
+fig, ax = plt.subplots(figsize=(10.5, 5.5), dpi=300)
 bars = ax.barh(
     risk_df["Indicator"],
     risk_df["Prevalence (%)"],
@@ -94,7 +99,7 @@ bars = ax.barh(
 )
 
 ax.set_title(
-    "Comprehensive Risk Indicator Breakdown for Strategy & Deployment",
+    "Risk Indicator Breakdown",
     fontsize=12,
     fontweight="bold",
     pad=15,
