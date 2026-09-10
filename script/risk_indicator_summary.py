@@ -22,23 +22,6 @@ df_lag_summary = pd.read_excel(input_file_lag, sheet_name="Summary_Overview")
 total_accounts = len(df_user)
 
 # 4. Compute derived risk boolean flags cleanly and dynamically
-if "missing_email" not in df_user.columns:
-    df_user["missing_email"] = df_user["email"].isna() | (
-        df_user["email"].astype(str).str.strip() == ""
-    )
-
-# Clean dynamic check for incomplete profile name
-if "user_name" in df_user.columns:
-    df_user["incomplete_profile_name"] = df_user["user_name"].isna() | (
-        df_user["user_name"].astype(str).str.strip() == ""
-    )
-elif "incomplete_profile_name" not in df_user.columns:
-    full_name = (
-        df_user["first_name"].fillna("").astype(str)
-        + df_user["last_name"].fillna("").astype(str)
-    ).str.strip()
-    df_user["incomplete_profile_name"] = full_name == ""
-
 if "is_web_device" not in df_user.columns:
     df_user["is_web_device"] = df_user["device_type"].astype(str).str.upper() == "WEB"
 
@@ -62,15 +45,10 @@ user_lag["hf_order_pct"] = (user_lag["0s - <30s"] / user_lag["Total"]) * 100
 hf_dominant_accounts_cnt = (user_lag["hf_order_pct"] > 50.0).sum()
 hf_prevalence = (hf_dominant_accounts_cnt / total_accounts) * 100
 
-# 6. Build dynamic risk indicators dictionary (Fully automated calculation)
+# 6. Build dynamic risk indicators dictionary (Excluding email & profile name)
 risk_indicators = {
-    "Missing Email": (df_user["missing_email"].sum() / total_accounts) * 100,
     "Account Age < 90 Days": (
         (df_user["account_age(days)"] < 90).sum() / total_accounts
-    )
-    * 100,
-    "Incomplete Profile Name": (
-        df_user["incomplete_profile_name"].sum() / total_accounts
     )
     * 100,
     "High-Frequency Dominant Accounts (>50% Orders <30s Lag)": hf_prevalence,
@@ -89,13 +67,13 @@ risk_df = pd.DataFrame(
 ).sort_values("Prevalence (%)", ascending=True)
 
 # 8. Generate Horizontal Bar Chart
-fig, ax = plt.subplots(figsize=(10.5, 5.5), dpi=300)
+fig, ax = plt.subplots(figsize=(10.5, 4.5), dpi=300)
 bars = ax.barh(
     risk_df["Indicator"],
     risk_df["Prevalence (%)"],
     color="#d62728",
     edgecolor="black",
-    height=0.6,
+    height=0.55,
 )
 
 ax.set_title(
